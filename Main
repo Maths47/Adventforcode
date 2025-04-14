@@ -1,0 +1,263 @@
+import pandas as pd
+from io import StringIO
+import requests
+import re
+
+#Put the session cookie
+SESSION_COOKIE = "************************************************************************************************************************"
+
+#Day 1 : 
+
+#Part 1 :
+#Load the data with URL and cookies
+url = "https://adventofcode.com/2024/day/1/input"
+headers = {
+    "Cookie": f"session={SESSION_COOKIE}",
+    "User-Agent": "github.com/ton_pseudo - Advent of Code fetcher"
+}
+response = requests.get(url, headers=headers)
+data_text = response.text.strip()
+data_io = StringIO(data_text)
+#Create the Dataset 
+df = pd.read_csv(data_io, sep="\s+", header=None, names=["col1", "col2"])
+
+#Sort the lists to compare the numbers
+df = df.apply(lambda col: sorted(col))
+
+#Compute the distance
+total_distance = (df["col1"] - df["col2"]).abs().sum()
+
+print("La distance total est de :" , total_distance)
+#Answer : 1879048
+
+#Part 2:
+#Count the occurrences of each value in the right list col2 
+counts = df["col2"].value_counts()
+
+#Multiply the number of the left list to the number of occurence corresponding in the right list
+similarity_score = df["col1"].apply(lambda x: x * counts.get(x, 0)).sum()
+
+print("Le score de similarité est de :" , similarity_score)
+#Answer : 21024792
+
+#Day 2 : 
+
+#Part 1 :
+##Load the data with URL and cookies
+url = "https://adventofcode.com/2024/day/2/input"
+headers = {
+    "Cookie": f"session={SESSION_COOKIE}",
+    "User-Agent": "github.com/ton_pseudo - Advent of Code fetcher"
+}
+
+response = requests.get(url, headers=headers)
+data = response.text.strip().split("\n")
+safe_count = 0
+
+#Check if the input report is safe : The levels are either all increasing or all decreasing and any two adjacent levels differ by at least one and at most three.
+def is_safe(report):
+    #Save the difference between 1 level and the next one
+    diffs = [report[i+1] - report[i] for i in range(len(report)-1)]
+    
+    if len(diffs) == 0:  
+        return False
+    
+    #Check if the diffs are all > 0 or all < 0 (The levels are either all increasing or all decreasing)
+    all_increasing = all(d > 0 for d in diffs)
+    all_decreasing = all(d < 0 for d in diffs)
+    
+    #Check that the differences are all between 1 and 3 
+    all_valid_step = all(1 <= abs(d) <= 3 for d in diffs)
+    
+    return (all_increasing or all_decreasing) and all_valid_step
+
+#Apply the function to all the lines in the dataset
+for line in data:
+    if not line.strip():
+        continue
+    numbers = list(map(int, line.strip().split()))
+    if is_safe(numbers):
+        safe_count += 1
+
+print("Nombre de rapports safe :", safe_count)
+#Answer : 407
+
+#Part 2 :
+
+#Input the report and return true if the report is safe by checking by removing 1 level 
+def is_safe_with_dampener(report):
+    if is_safe(report):
+        return True
+    #Try by removing 1 level 
+    for i in range(len(report)):
+        reduced = report[:i] + report[i+1:]
+        if is_safe(reduced):
+            return True
+    return False
+
+safe_count = 0
+for line in data:
+    if not line.strip():
+        continue
+    numbers = list(map(int, line.strip().split()))
+    if is_safe_with_dampener(numbers):
+        safe_count += 1
+
+print("Nombre de rapports safe (avec dampener) :", safe_count)
+#Answer : 459
+
+#Day 3 
+
+url = "https://adventofcode.com/2024/day/3/input"
+headers = {
+    "Cookie": f"session={SESSION_COOKIE}",
+    "User-Agent": "github.com/ton_pseudo - Advent of Code fetcher"
+}
+
+response = requests.get(url, headers=headers)
+data = response.text.strip()
+
+#input the text and extract all the valid patern (mul(x,y)). Output the sum of the multiplications
+def extract_valid_mul_results(text):
+    pattern = r'mul\((\d{1,3}),(\d{1,3})\)'
+    matches = re.findall(pattern, text)
+    return sum(int(x) * int(y) for x, y in matches)
+
+
+result = extract_valid_mul_results(data)
+print("Total des multiplications valides :", result)
+#Answer : 181345830
+
+#Input the text, read from left to right and check if enable or not : if enable, check valid mult patern and output the sum of the multiplications
+def check_do_and_extract_valid_mul_results(text):
+    total = 0
+    enabled = True
+    i = 0
+
+    while i < len(text):
+        #Check for do()
+        if text.startswith("do()", i):
+            enabled = True
+            i += 4
+        #Check for don't()
+        elif text.startswith("don't()", i):
+            enabled = False
+            i += 7
+        #Check for valid mul(x,y)
+        elif text.startswith("mul(", i):
+            match = re.match(r'mul\((\d{1,3}),(\d{1,3})\)', text[i:])
+            if match and enabled:
+                x = int(match.group(1))
+                y = int(match.group(2))
+                total += x * y
+                i += match.end()  #advance past the full match
+            else:
+                i += 1  #invalid mul, move forward
+        else:
+            i += 1  #any other char, continue
+    return total
+
+new_result = check_do_and_extract_valid_mul_results(data)
+print("Total des multiplications valides avec do et dont't :", new_result)
+#Answer : 98729041
+
+#Day 4 :
+
+#Part 1:
+url = "https://adventofcode.com/2024/day/4/input"
+headers = {
+    "Cookie": f"session={SESSION_COOKIE}",
+    "User-Agent": "github.com/ton_pseudo - Advent of Code fetcher"
+}
+
+response = requests.get(url, headers=headers)
+data = response.text.strip().split("\n")
+#Convert the data to a 2D grid
+grid = [line for line in data]
+
+
+#Function to check the directions
+def search_direction(x, y, dx, dy, word_len, rows, cols):
+    for i in range(word_len):
+        nx, ny = x + i * dx, y + i * dy
+        if nx < 0 or nx >= rows or ny < 0 or ny >= cols or grid[nx][ny] != word[i]:
+            return False
+    return True
+
+#input the grid and the word to look for, output the number of time the word is in the grid 
+def find_word_in_grid(grid, word):
+    rows = len(grid)
+    cols = len(grid[0])
+    word_len = len(word)
+    count = 0
+
+    #Horizontal, vertical, diagonal and inverse search
+    for i in range(rows):
+        for j in range(cols):
+            #Horizontal (right)
+            if search_direction(i, j, 0, 1, word_len, rows, cols):
+                count += 1
+            #Vertical (downward)
+            if search_direction(i, j, 1, 0, word_len, rows, cols):
+                count += 1
+            #Diagonal (down right)
+            if search_direction(i, j, 1, 1, word_len, rows, cols):
+                count += 1
+            #Diagonale (down left)
+            if search_direction(i, j, 1, -1, word_len, rows, cols):
+                count += 1
+            #Horizontal (left)
+            if search_direction(i, j, 0, -1, word_len, rows, cols):
+                count += 1
+            # Vertical (topward)
+            if search_direction(i, j, -1, 0, word_len, rows, cols):
+                count += 1
+            #Diagonale (top right)
+            if search_direction(i, j, -1, 1, word_len, rows, cols):
+                count += 1
+            # Diagonale (top left)
+            if search_direction(i, j, -1, -1, word_len, rows, cols):
+                count += 1
+
+    return count
+
+
+#Word to look for
+word = "XMAS"
+
+result = find_word_in_grid(grid, word)
+print(f"Le mot 'XMAS' apparaît {result} fois.")
+#Answer : 2532
+
+#Part 2 :
+
+#Check if the diagonal input is MAS or SAM
+def is_valid_mas(diagonal):
+    return diagonal == ['M', 'A', 'S'] or diagonal == ['S', 'A', 'M']
+
+#Input the grid and count the number of time the X-MAS pattern is present as the input
+def count_xmas_patterns(grid):
+    rows = len(grid)
+    cols = len(grid[0])
+    count = 0
+
+    for i in range(1, rows - 1):
+        for j in range(1, cols - 1):
+            center = grid[i][j]
+
+            if center != 'A':
+                continue  #The center must be a "A"
+
+            #Diagonale bot right : (i-1,j-1), (i,j), (i+1,j+1)
+            diag1 = [grid[i-1][j-1], center, grid[i+1][j+1]]
+            #Diagonale bot left : (i-1,j+1), (i,j), (i+1,j-1)
+            diag2 = [grid[i-1][j+1], center, grid[i+1][j-1]]
+
+            if is_valid_mas(diag1) and is_valid_mas(diag2):
+                count += 1
+
+    return count
+
+xmas_count = count_xmas_patterns(grid)
+print(f"Le motif 'X-MAS' apparaît {xmas_count} fois.")
+#Answer : 1941
